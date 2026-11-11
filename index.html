@@ -1,0 +1,734 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>The Comments Maze</title>
+<meta name="description" content="Help Wapuu turn off comments in WordPress. An 8-bit maze game.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; height: 100%; background: #070b24; overflow: hidden; overscroll-behavior: none; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif; color: #e8ecff; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+
+  .hud { position: fixed; left: 0; right: 0; top: 0; padding: calc(10px + env(safe-area-inset-top)) 12px 0; display: flex; gap: 8px; align-items: center; pointer-events: none; }
+  .addr { flex: 1 1 auto; min-width: 0; background: rgba(11,16,48,.88); border: 1px solid #2a3570; border-radius: 999px; padding: 8px 14px; font-size: 13px; color: #9aa6e0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .addr b { color: #e8ecff; font-weight: 600; }
+  .timer { flex: 0 0 auto; background: rgba(11,16,48,.88); border: 1px solid #2a3570; border-radius: 999px; padding: 8px 14px; font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .task { position: fixed; left: 0; right: 0; top: calc(54px + env(safe-area-inset-top)); text-align: center; font-size: 13px; color: #9aa6e0; pointer-events: none; }
+  .task b { color: #ffd98a; }
+
+  .toast { position: fixed; left: 50%; top: calc(86px + env(safe-area-inset-top)); transform: translate(-50%, -8px); max-width: min(86vw, 420px); background: rgba(11,16,48,.95); border: 1px solid #4C83FF; border-radius: 14px; padding: 10px 16px; font-size: 15px; line-height: 1.35; text-align: center; opacity: 0; transition: opacity .25s, transform .25s; pointer-events: none; }
+  .toast.on { opacity: 1; transform: translate(-50%, 0); }
+
+  .askbar { position: fixed; left: 0; right: 0; bottom: 0; padding: 0 16px calc(18px + env(safe-area-inset-bottom)); display: flex; justify-content: center; pointer-events: none; }
+  .ask { pointer-events: auto; font: inherit; font-size: 17px; font-weight: 700; color: #6b76ad; background: rgba(11,16,48,.92); border: 2px solid #2a3570; border-radius: 999px; padding: 14px 26px; min-width: 230px; }
+  .ask.ready { color: #06102e; background: linear-gradient(90deg, #7df9ff, #4C83FF); border-color: #c9f6ff; animation: pulse 1.2s ease-in-out infinite; cursor: pointer; }
+  @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(125,249,255,.55); } 50% { box-shadow: 0 0 0 14px rgba(125,249,255,0); } }
+
+  .chat { position: fixed; left: 50%; top: calc(64px + env(safe-area-inset-top)); transform: translateX(-50%); width: min(90vw, 440px); display: none; flex-direction: column; gap: 8px; pointer-events: none; }
+  .chat.on { display: flex; }
+  .bubble { background: rgba(11,16,48,.96); border: 1px solid #4C83FF; border-radius: 16px; padding: 12px 16px; font-size: 16px; line-height: 1.4; }
+  .bubble small { display: block; color: #7df9ff; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; margin-bottom: 4px; }
+  .bubble.ai { border-color: #58d68d; align-self: flex-end; opacity: 0; transition: opacity .3s; }
+  .bubble.ai small { color: #58d68d; }
+  .bubble.ai.on { opacity: 1; }
+
+  .veil { position: fixed; inset: 0; background: rgba(5,8,28,.82); display: none; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; overflow-y: auto; }
+  .veil.on { display: flex; }
+  .card { width: min(100%, 420px); background: linear-gradient(180deg, #121a4a, #0b1033); border: 1px solid #34419a; border-radius: 22px; padding: 26px 22px 22px; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.55), 0 0 0 6px rgba(76,131,255,.08), inset 0 1px 0 rgba(255,255,255,.08); }
+  .card h1 { margin: 0 0 10px; font-size: 30px; line-height: 1.15; background: linear-gradient(90deg, #7df9ff, #8fb0ff 60%, #c9b6ff); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .art { width: 150px; height: 130px; display: block; margin: -10px auto 2px; }
+  .card h2 { margin: 0 0 10px; font-size: 24px; line-height: 1.2; }
+  .card p { margin: 0 0 14px; font-size: 16px; line-height: 1.45; color: #c4cbf2; }
+  .card .path { font-size: 13px; color: #9aa6e0; margin-bottom: 8px; }
+  .btn { font: inherit; font-size: 17px; font-weight: 700; border: 0; border-radius: 999px; padding: 14px 24px; width: 100%; margin-top: 8px; cursor: pointer; color: #06102e; background: linear-gradient(90deg, #7df9ff, #4C83FF); text-decoration: none; display: block; box-sizing: border-box; }
+  .btn.ghost { background: transparent; color: #e8ecff; border: 1px solid #3a48a0; }
+  .row { display: flex; gap: 8px; } .row .btn { flex: 1; }
+  .setting { display: flex; align-items: center; gap: 12px; text-align: left; background: #151c4a; border: 1px solid #2a3570; border-radius: 12px; padding: 12px 14px; margin: 0 0 14px; font-size: 15px; line-height: 1.35; }
+  .tick { flex: 0 0 22px; height: 22px; border-radius: 5px; border: 2px solid #7f8bd0; background: #4C83FF; position: relative; transition: background .2s; }
+  .tick::after { content: ""; position: absolute; left: 6px; top: 2px; width: 6px; height: 11px; border: solid #fff; border-width: 0 2.5px 2.5px 0; transform: rotate(45deg); transition: opacity .2s; }
+  .tick.off { background: transparent; } .tick.off::after { opacity: 0; }
+  .quote { background: #151c4a; border-left: 4px solid #f5b942; border-radius: 8px; padding: 10px 14px; text-align: left; font-size: 15px; line-height: 1.4; color: #ffe2a6; margin: 0 0 14px; }
+  .stats { display: flex; gap: 10px; margin: 6px 0 14px; }
+  .stat { flex: 1; background: #151c4a; border: 1px solid #2a3570; border-radius: 14px; padding: 12px 8px; }
+  .stat .n { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .stat .l { font-size: 12px; color: #9aa6e0; margin-top: 4px; }
+  .stat.ai { border-color: #58d68d; } .stat.ai .n { color: #58d68d; font-size: 22px; padding: 4px 0; }
+  .said { font-size: 14px; color: #c4cbf2; background: #151c4a; border-radius: 12px; padding: 10px 12px; margin: 0 0 14px; line-height: 1.4; }
+  .tag { font-size: 13px; color: #9aa6e0; margin: 10px 0 0; }
+  .hint { font-size: 14px; color: #9aa6e0; margin: 12px 0 0; }
+</style>
+
+<style>
+  /* 8-bit skin: one chunky pixel font, square corners, flat colours */
+  body, button, .btn { font-family: "Press Start 2P", "Courier New", monospace; }
+  * { border-radius: 0 !important; }
+  .addr { font-size: 8px; padding: 10px 10px; border: 2px solid #4C83FF; background: #0b1030; }
+  .timer { font-size: 10px; padding: 9px 10px; border: 2px solid #4C83FF; background: #0b1030; }
+  .task { font-size: 8px; top: calc(56px + env(safe-area-inset-top)); }
+  .toast { font-size: 9px; line-height: 1.8; border: 3px solid #e8ecff; background: #0b1030; box-shadow: 4px 4px 0 #000; transition: none; padding: 12px 12px; }
+  .ask { font-size: 10px; padding: 14px 16px; border: 3px solid #2a3570; min-width: 0; background: #0b1030; }
+  .ask.ready { background: #7df9ff; border-color: #fff; color: #06102e; box-shadow: 4px 4px 0 #1f5fd6; animation: blink8 .9s steps(2, start) infinite; }
+  @keyframes blink8 { 0% { background: #7df9ff; } 100% { background: #ffffff; } }
+  .bubble { font-size: 9px; line-height: 1.8; border: 3px solid #4C83FF; background: #0b1030; }
+  .bubble small { font-size: 8px; margin-bottom: 8px; }
+  .bubble.ai { border-color: #58d68d; transition: none; }
+  .veil { background: rgba(5,8,28,.88); }
+  .card { background: #0d1338; border: 4px solid #e8ecff; box-shadow: 0 0 0 4px #0b1030, 0 0 0 8px #4C83FF, 10px 14px 0 8px rgba(0,0,0,.5); padding: 22px 18px 20px; }
+  .card h1 { font-size: 17px; line-height: 1.5; background: none; color: #7df9ff; text-shadow: 3px 3px 0 #2a3aa6; margin-bottom: 14px; }
+  .card h2 { font-size: 14px; line-height: 1.5; color: #7df9ff; text-shadow: 2px 2px 0 #2a3aa6; margin-bottom: 14px; }
+  .card p { font-size: 9px; line-height: 1.9; }
+  .card .path { font-size: 7px; line-height: 1.8; }
+  .btn { font-size: 12px; padding: 16px 10px; background: #7df9ff; color: #06102e; box-shadow: 4px 4px 0 #1f5fd6; margin-top: 12px; }
+  .btn:active { transform: translate(3px, 3px); box-shadow: 1px 1px 0 #1f5fd6; }
+  .btn.ghost { font-size: 9px; background: #0d1338; color: #e8ecff; border: 3px solid #4C83FF; box-shadow: 4px 4px 0 #000; }
+  .row { gap: 12px; }
+  .setting { font-size: 9px; line-height: 1.8; border: 3px solid #4C83FF; }
+  .tick { border: 3px solid #e8ecff; transition: none; flex-basis: 20px; height: 20px; }
+  .tick::after { transition: none; left: 4px; top: 0; }
+  .quote { font-size: 9px; line-height: 1.9; border-left: 6px solid #f5b942; }
+  .stat { border: 3px solid #4C83FF; padding: 12px 4px; }
+  .stat .n { font-size: 18px; line-height: 1.4; }
+  .stat .l { font-size: 7px; line-height: 1.7; margin-top: 8px; }
+  .stat.ai .n { font-size: 10px; padding: 7px 0; }
+  .said { font-size: 8px; line-height: 1.9; }
+  .tag, .hint { font-size: 7px; line-height: 1.8; margin-top: 20px; }
+  #shareText { display: none; width: 100%; box-sizing: border-box; margin-top: 12px; background: #0b1030; color: #e8ecff; border: 3px solid #4C83FF; font: 8px/1.8 "Press Start 2P", "Courier New", monospace; padding: 8px; resize: none; -webkit-user-select: text; user-select: text; }
+  .art { image-rendering: pixelated; width: 128px; height: 128px; margin: -4px auto 10px; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div class="hud">
+  <div class="addr"><b>yourwordpresssite.com</b>/wp-admin</div>
+  <div class="timer" id="timer">0:00</div>
+</div>
+<div class="task" id="task">Task: <b>turn off comments</b></div>
+<div class="toast" id="toast"></div>
+
+<div class="chat" id="chat">
+  <div class="bubble"><small>You</small><span id="typed"></span></div>
+  <div class="bubble ai" id="aiBubble"><small>Your AI</small>Done. Comments are off on every post, old and new.</div>
+</div>
+
+<div class="askbar"><button class="ask" id="ask" disabled>Just ask (20)</button></div>
+
+<div class="veil on" id="intro">
+  <div class="card">
+    <canvas class="art" id="artIntro" width="16" height="16"></canvas>
+    <h1>The Comments Maze</h1>
+    <p>Wapuu needs to turn off comments in WordPress. The setting is in here somewhere.</p>
+    <p>Follow the signposts. Mind the dead ends.</p>
+    <button class="btn" id="startBtn">PRESS START</button>
+    <p class="hint">Swipe to steer, or use the arrow keys.</p>
+  </div>
+</div>
+
+<div class="veil" id="fake1">
+  <div class="card">
+    <div class="path">Settings &rsaquo; Discussion &rsaquo; Default post settings</div>
+    <h2>You found it!</h2>
+    <div class="setting"><span class="tick" id="tick"></span><span>Allow people to submit comments on new posts</span></div>
+    <button class="btn" id="switchBtn">Switch it off</button>
+  </div>
+</div>
+
+<div class="veil" id="fake2">
+  <div class="card">
+    <h2>Hang on.</h2>
+    <p>Read the small print under that box.</p>
+    <div class="quote">&ldquo;Changes here will only be applied to new posts.&rdquo;</div>
+    <p>Comments are still open on everything you've already published. The maze carries on.</p>
+    <button class="btn" id="goBtn">Keep going</button>
+  </div>
+</div>
+
+<div class="veil" id="end">
+  <div class="card">
+    <canvas class="art" id="artEnd" width="16" height="16"></canvas>
+    <h2 id="endTitle">You asked. Done.</h2>
+    <div class="stats">
+      <div class="stat"><div class="n" id="endTime">0:00</div><div class="l" id="endTimeLabel">you, lost in the menus</div></div>
+      <div class="stat ai"><div class="n">1 sentence</div><div class="l">your AI</div></div>
+    </div>
+    <div class="said">&ldquo;Turn off comments on every post on yourwordpresssite.com, old and new.&rdquo;</div>
+    <a class="btn" id="cta" href="https://wpvibe.ai/" target="_blank" rel="noopener">Try WPVibe</a>
+    <div class="row">
+      <button class="btn ghost" id="shareBtn">Share</button>
+      <button class="btn ghost" id="againBtn">Play again</button>
+    </div>
+    <textarea id="shareText" readonly rows="4" aria-label="Text to share"></textarea>
+    <p class="tag">Manage WordPress from your AI chat</p>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ---- Maze ---------------------------------------------------------------
+  // Menu names, order and the Discussion wording were checked against a real
+  // WordPress 7.1.3 install on 11 Nov 2026.
+  var W = 23, H = 41;
+  var START = [1, 39], FAKE = [15, 13], GATE = [16, 13], EXIT = [21, 39];
+  var SENTENCE = 'Turn off comments on every post on yourwordpresssite.com, old and new.';
+  var UNLOCK = 20, SPEED = 5;
+
+  var PATHS = [
+    [[1,39],[1,35],[3,35],[3,31],[1,31],[1,25],[3,25],[3,19],[1,19],[1,13],[3,13],[3,7],[1,7],[1,1],[13,1],[13,9],[9,9],[9,13],[15,13]],
+    [[1,37],[11,37]],
+    [[3,33],[9,33],[9,31],[13,31]],
+    [[1,27],[5,27],[5,29],[11,29],[11,25],[13,25]],
+    [[3,23],[9,23],[9,21],[13,21]],
+    [[1,17],[7,17],[7,19],[11,19],[11,17],[13,17]],
+    [[5,1],[5,5]],
+    [[9,1],[9,5],[7,5]],
+    [[13,7],[7,7],[7,11],[5,11]],
+    [[17,13],[17,17],[21,17],[21,23],[15,23],[15,27],[21,27],[21,31],[17,31],[17,35],[21,35],[21,39]],
+    [[21,21],[17,21]]
+  ];
+
+  // t: trigger cell (label shows once that cell has been lit), at: label centre, in cells
+  var SIGNS = [
+    { t: [1,39],  at: [3.4,39], s: 'Dashboard', dim: true },
+    { t: [1,37],  at: [4,36],   s: 'Posts' },
+    { t: [3,33],  at: [6,32],   s: 'Pages' },
+    { t: [13,31], at: [11.5,30], s: 'All Pages', dim: true },
+    { t: [1,27],  at: [3,28],   s: 'Comments' },
+    { t: [13,25], at: [12,24],  s: 'All Comments', dim: true },
+    { t: [3,23],  at: [6,22],   s: 'Appearance' },
+    { t: [13,21], at: [11.5,20], s: 'Themes', dim: true },
+    { t: [1,17],  at: [3.5,16], s: 'Plugins' },
+    { t: [13,17], at: [12,16],  s: 'Add Plugin', dim: true },
+    { t: [1,3],   at: [3,3],    s: 'Settings' },
+    { t: [5,5],   at: [5,6],    s: 'General', dim: true },
+    { t: [7,5],   at: [8,6],    s: 'Reading', dim: true },
+    { t: [13,3],  at: [11,3],   s: 'Discussion' },
+    { t: [5,11],  at: [5,12],   s: 'Avatars', dim: true },
+    { t: [11,13], at: [12,12],  s: 'Default post settings' },
+    { t: [17,15], at: [19,15],  s: 'Posts', wing: true },
+    { t: [17,21], at: [18.5,20], s: 'Categories', dim: true },
+    { t: [19,23], at: [18,24],  s: 'All Posts', wing: true },
+    { t: [17,27], at: [18,26],  s: 'Bulk actions', wing: true },
+    { t: [21,29], at: [19,29],  s: 'Edit', wing: true },
+    { t: [19,31], at: [19,30],  s: 'Comments', wing: true },
+    { t: [17,33], at: [19.4,33], s: 'Do not allow', wing: true },
+    { t: [19,35], at: [19,36],  s: 'Update', wing: true }
+  ];
+
+  var DEAD = {
+    '11,37': 'Posts? Nothing in here says comments. Back you go.',
+    '13,31': 'All Pages. Just a list of pages.',
+    '13,25': 'All Comments. You can approve them here, not switch them off.',
+    '13,21': 'Themes. Pretty, but no comments switch.',
+    '13,17': 'Add Plugin. You came for a setting, not another plugin.',
+    '5,5':   'General. No comments switch here.',
+    '7,5':   'Reading. Close, but no.',
+    '5,11':  'Avatars. Profile pictures for commenters. Still not it.',
+    '17,21': 'Categories. Wrong turn.'
+  };
+
+  var open = [], light = [], target = [], seen = [];
+  function idx(x, y) { return y * W + x; }
+  function inb(x, y) { return x >= 0 && y >= 0 && x < W && y < H; }
+  function build() {
+    var i, p, k, a, b, x, y, dx, dy;
+    for (i = 0; i < W * H; i++) { open[i] = false; light[i] = 0; target[i] = 0; seen[i] = false; }
+    for (p = 0; p < PATHS.length; p++) {
+      for (k = 0; k < PATHS[p].length - 1; k++) {
+        a = PATHS[p][k]; b = PATHS[p][k + 1];
+        dx = Math.sign(b[0] - a[0]); dy = Math.sign(b[1] - a[1]);
+        x = a[0]; y = a[1]; open[idx(x, y)] = true;
+        while (x !== b[0] || y !== b[1]) { x += dx; y += dy; open[idx(x, y)] = true; }
+      }
+    }
+  }
+  var gateOpen = false;
+  function isOpen(x, y) {
+    if (!inb(x, y)) return false;
+    if (x === GATE[0] && y === GATE[1]) return gateOpen;
+    return open[idx(x, y)];
+  }
+  function isWing(x, y) { return x >= 16; }
+  var N4 = [[1,0],[-1,0],[0,1],[0,-1]];
+
+  // ---- State --------------------------------------------------------------
+  var state = 'intro'; // intro, play, modal, ask, end
+  var pl, elapsed, started, fakeDone, askT, walked, camS, camX, camY, lastToastKey;
+  function reset() {
+    build();
+    parts = []; shake = 0; visitedDead = {}; gateFade = 0; beamHit = false; SIGNS.forEach(function (g) { g.pop = 0; });
+    gateOpen = false; fakeDone = false; elapsed = 0; started = false; askT = 0; walked = false; lastToastKey = '';
+    pl = { x: START[0], y: START[1], cx: START[0], cy: START[1], sx: START[0], sy: START[1], p: 1, dist: 1, moving: false, dir: null, want: null, wantT: 0, face: 1 };
+    relight();
+    camX = pl.x + .5; camY = pl.y + .5; camS = 0;
+  }
+
+  function relight() {
+    var i, q = [[pl.x, pl.y, 0]], vis = {}, cur, n, nx, ny, lv = [1, .92, .68, .42];
+    for (i = 0; i < W * H; i++) target[i] = seen[i] ? .2 : 0;
+    vis[pl.x + ',' + pl.y] = true;
+    while (q.length) {
+      cur = q.shift();
+      i = idx(cur[0], cur[1]); target[i] = lv[cur[2]]; seen[i] = true;
+      if (cur[2] >= 3) continue;
+      for (n = 0; n < 4; n++) {
+        nx = cur[0] + N4[n][0]; ny = cur[1] + N4[n][1];
+        if (isOpen(nx, ny) && !vis[nx + ',' + ny]) { vis[nx + ',' + ny] = true; q.push([nx, ny, cur[2] + 1]); }
+      }
+    }
+  }
+
+  // ---- DOM ----------------------------------------------------------------
+  function $(id) { return document.getElementById(id); }
+  var cv = $('c'), ctx = cv.getContext('2d'), vw = 0, vh = 0, dpr = 1;
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    vw = window.innerWidth; vh = window.innerHeight;
+    cv.width = Math.round(vw * dpr); cv.height = Math.round(vh * dpr);
+  }
+  window.addEventListener('resize', resize);
+  function fmt(t) { var s = Math.floor(t); return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); }
+  var toastTimer = 0;
+  function toast(msg, ms) {
+    var el = $('toast'); el.textContent = msg; el.classList.add('on');
+    clearTimeout(toastTimer); toastTimer = setTimeout(function () { el.classList.remove('on'); }, ms || 2600);
+  }
+  function show(id, on) { $(id).classList.toggle('on', !!on); }
+
+  // ---- Input --------------------------------------------------------------
+  function setWant(d) {
+    if (state !== 'play') return;
+    pl.want = d; pl.wantT = clock; started = true;
+    if (!pl.moving || !pl.dir) return;
+    // turn round straight away, even between two squares
+    if (d === REV[pl.dir]) { flip(); pl.want = null; return; }
+    // pressed a moment late: the turn was on the square just left, so step back and take it
+    if (pl.p * pl.dist < .5 && !isOpen(pl.x + DV[d][0], pl.y + DV[d][1]) && isOpen(pl.cx + DV[d][0], pl.cy + DV[d][1])) flip();
+  }
+  // start moving from wherever Wapuu is right now towards square (nx, ny)
+  function go(nx, ny, d, prevx, prevy) {
+    var ax = pl.sx + (pl.x - pl.sx) * pl.p, ay = pl.sy + (pl.y - pl.sy) * pl.p;
+    pl.sx = ax; pl.sy = ay; pl.cx = prevx; pl.cy = prevy; pl.x = nx; pl.y = ny;
+    pl.dist = Math.max(.05, Math.sqrt((nx - ax) * (nx - ax) + (ny - ay) * (ny - ay)));
+    pl.p = 0; pl.moving = true; pl.dir = d;
+    if (d === 'L') pl.face = -1; if (d === 'R') pl.face = 1;
+  }
+  function flip() { go(pl.cx, pl.cy, REV[pl.dir], pl.x, pl.y); }
+  var KEYS = { ArrowLeft: 'L', ArrowRight: 'R', ArrowUp: 'U', ArrowDown: 'D', a: 'L', d: 'R', w: 'U', s: 'D', A: 'L', D: 'R', W: 'U', S: 'D' };
+  window.addEventListener('keydown', function (e) {
+    if (KEYS[e.key]) { setWant(KEYS[e.key]); e.preventDefault(); }
+  });
+  var anchor = null;
+  cv.addEventListener('pointerdown', function (e) { anchor = [e.clientX, e.clientY]; });
+  cv.addEventListener('pointermove', function (e) {
+    if (!anchor) return;
+    var dx = e.clientX - anchor[0], dy = e.clientY - anchor[1];
+    if (Math.abs(dx) < 9 && Math.abs(dy) < 9) return;
+    setWant(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'R' : 'L') : (dy > 0 ? 'D' : 'U'));
+    anchor = [e.clientX, e.clientY];
+  });
+  window.addEventListener('pointerup', function () { anchor = null; });
+  window.addEventListener('pointercancel', function () { anchor = null; });
+  document.addEventListener('touchmove', function (e) { e.preventDefault(); }, { passive: false });
+
+  var DV = { L: [-1, 0], R: [1, 0], U: [0, -1], D: [0, 1] }, REV = { L: 'R', R: 'L', U: 'D', D: 'U' };
+  function can(d) { return isOpen(pl.x + DV[d][0], pl.y + DV[d][1]); }
+
+  function chooseDir() {
+    var d, opts = [], k;
+    if (pl.want && clock - pl.wantT > .9) pl.want = null; // an old swipe should not fire at a later junction
+    if (pl.want && can(pl.want)) { d = pl.want; pl.want = null; return d; }
+    if (pl.dir && can(pl.dir)) return pl.dir;
+    if (pl.dir) { // follow a bend when there is only one way on
+      for (k in DV) if (k !== REV[pl.dir] && can(k)) opts.push(k);
+      if (opts.length === 1) return opts[0];
+    }
+    return null;
+  }
+
+  function arrive() {
+    var key = pl.x + ',' + pl.y;
+    relight();
+    puff(pl.x + .5, pl.y + .78, 3, 'dust');
+    if (DEAD[key] && lastToastKey !== key) { toast(DEAD[key], 3200); shake = .28; puff(pl.x + .5, pl.y + .5, 14, 'bad'); visitedDead[key] = true; }
+    lastToastKey = DEAD[key] ? key : '';
+    if (pl.x === FAKE[0] && pl.y === FAKE[1] && !fakeDone) {
+      state = 'modal'; pl.dir = null; pl.want = null;
+      $('tick').classList.remove('off'); show('fake1', true);
+    }
+    if (pl.x === EXIT[0] && pl.y === EXIT[1]) { walked = true; finish(); }
+  }
+
+  function step(dt) {
+    var d;
+    if (state === 'play') {
+      if (started) elapsed += dt;
+      if (pl.moving) {
+        if (pl.want && clock - pl.wantT > .9) pl.want = null;
+        // start the turn early and cut the corner, instead of waiting to land on the square
+        if (pl.want && pl.want !== pl.dir && pl.want !== REV[pl.dir] && (1 - pl.p) * pl.dist <= .5 && can(pl.want)) {
+          d = pl.want; pl.want = null;
+          go(pl.x + DV[d][0], pl.y + DV[d][1], d, pl.x, pl.y);
+          relight();
+        }
+        pl.p += dt * SPEED / pl.dist;
+        if (pl.p >= 1) { pl.p = 1; pl.moving = false; arrive(); }
+      }
+      if (!pl.moving && state === 'play') {
+        d = chooseDir(); pl.dir = d;
+        if (d) go(pl.x + DV[d][0], pl.y + DV[d][1], d, pl.x, pl.y);
+      }
+    }
+  }
+  function px() { return pl.sx + (pl.x - pl.sx) * pl.p + .5; }
+  function py() { return pl.sy + (pl.y - pl.sy) * pl.p + .5; }
+
+  // ---- Just ask -----------------------------------------------------------
+  var askFrom = [0, 0];
+  function askNow() {
+    if (state !== 'play' || elapsed < UNLOCK) return;
+    var i;
+    state = 'ask'; askT = 0; pl.moving = false; pl.p = 1; pl.dir = null;
+    askFrom = [pl.x + .5, pl.y + .5];
+    gateOpen = true;
+    for (i = 0; i < W * H; i++) if (open[i]) target[i] = .7;
+    target[idx(GATE[0], GATE[1])] = .7; open[idx(GATE[0], GATE[1])] = true;
+    $('typed').textContent = ''; $('aiBubble').classList.remove('on'); show('chat', true);
+    $('toast').classList.remove('on'); $('task').style.visibility = 'hidden';
+  }
+  function finish() {
+    state = 'end';
+    show('chat', false);
+    $('endTitle').textContent = walked ? 'You made it. The long way.' : 'You asked. Done.';
+    $('endTime').textContent = fmt(elapsed);
+    $('endTimeLabel').textContent = walked ? 'you, clicking through the menus' : 'you, lost in the menus';
+    $('shareBtn').textContent = 'Share'; $('shareText').style.display = 'none';
+    show('end', true);
+  }
+
+  // ---- Drawing (8-bit: everything is squares on a chunky pixel grid) -------
+  var stars = [], si, parts = [], shake = 0, visitedDead = {}, gateFade = 0, beamHit = false, emberT = 0;
+  for (si = 0; si < 150; si++) stars.push([Math.random(), Math.random(), Math.random() * 6.3, si < 22]);
+  var PCOL = { dust: '#b9c8ff', ember: '#ffb046', bad: '#f06078', gold: '#ffcd64', mint: '#8cfaff' };
+  function puff(x, y, n, kind) {
+    var i, a, sp;
+    for (i = 0; i < n; i++) {
+      a = Math.random() * 6.283; sp = kind === 'dust' ? .25 + Math.random() * .5 : (kind === 'ember' ? .15 + Math.random() * .3 : .8 + Math.random() * 2.4);
+      parts.push({ x: x, y: y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - (kind === 'ember' ? .9 : 0), t: 0,
+        m: kind === 'dust' ? .35 : (kind === 'ember' ? .4 + Math.random() * .4 : .5 + Math.random() * .5), k: kind });
+    }
+  }
+  function mk(w, h) { var c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+  // a 16 by 16 paving tile: brick lines and a few bright pixels
+  function mkTile(c0, c1, c2) {
+    var c = mk(16, 16), g = c.getContext('2d');
+    g.fillStyle = c1; g.fillRect(0, 0, 16, 16);
+    g.fillStyle = c0; g.fillRect(0, 7, 16, 1); g.fillRect(0, 15, 16, 1); g.fillRect(7, 0, 1, 7); g.fillRect(15, 0, 1, 7); g.fillRect(3, 8, 1, 7); g.fillRect(11, 8, 1, 7);
+    g.fillStyle = c2; g.fillRect(1, 1, 2, 1); g.fillRect(9, 1, 2, 1); g.fillRect(5, 9, 2, 1); g.fillRect(13, 9, 2, 1);
+    return c;
+  }
+  var TILE = { b: mkTile('#172266', '#2a3aa6', '#4f68e6'), a: mkTile('#4a330c', '#8d6520', '#cf9c3e') };
+  // Wapuu, 16 by 16: k outline, y yellow, o dark yellow, w cream, b eye, p cheek, h hat, d hat shade, s stick, f flame, l flame tip
+  var PAL = { k: '#3a2400', y: '#ffd21f', o: '#e0a800', w: '#fff3c2', b: '#1b1b2e', p: '#ff8fa6', h: '#b47c40', d: '#6b4420', s: '#96602c', f: '#ff7a1a', l: '#ffe37a' };
+  var WAP = [
+    '....dddddd......',
+    '...dhhhhhhd.....',
+    '..dhhhhhhhhd..l.',
+    '.dddddddddddd.fl',
+    '..kyyyyyyyyk.fff',
+    '.kyybyyyybyyk.f.',
+    '.kyybyyyybyyk.s.',
+    '.kypywwwwypyk.s.',
+    '..kyywbbwyykkys.',
+    '...kkyyyykkyyys.',
+    '..kyyywwyyyykks.',
+    '.kyyywwwwyyyk.s.',
+    '.kyyywwwwyyyk...',
+    'okyyyywwyyyyk...',
+    '.okkyykkyykk....',
+    '...kkk..kkk.....'
+  ];
+  function mkSprite(rows, flip, step) {
+    var c = mk(16, 16), g = c.getContext('2d'), x, y, ch, r;
+    for (y = 0; y < 16; y++) {
+      r = rows[y]; if (step && y === 15) r = '..kkk....kkk....';
+      for (x = 0; x < 16; x++) { ch = r.charAt(x); if (PAL[ch]) { g.fillStyle = PAL[ch]; g.fillRect(flip ? 15 - x : x, y, 1, 1); } }
+    }
+    return c;
+  }
+  var SPR = [[mkSprite(WAP, false, false), mkSprite(WAP, true, false)], [mkSprite(WAP, false, true), mkSprite(WAP, true, true)]];
+
+  function drawArt(id, time) {
+    var g = $(id).getContext('2d');
+    g.clearRect(0, 0, 16, 16); g.drawImage(SPR[Math.floor(time * 3) % 2][0], 0, 0);
+    if (Math.floor(time * 8) % 2) { g.fillStyle = '#ffe37a'; g.fillRect(13, 2, 1, 1); g.clearRect(14, 2, 1, 1); }
+  }
+  function ring(cx, cy, half, th, col) {
+    ctx.fillStyle = col;
+    ctx.fillRect(cx - half, cy - half, half * 2, th); ctx.fillRect(cx - half, cy + half - th, half * 2, th);
+    ctx.fillRect(cx - half, cy - half, th, half * 2); ctx.fillRect(cx + half - th, cy - half, th, half * 2);
+  }
+  function q4(t) { return t >= .9 ? 1 : (t >= .6 ? .72 : (t >= .4 ? .48 : (t >= .15 ? .24 : 0))); }
+
+  function draw(time, dt) {
+    var Wd = cv.width, Hd = cv.height, over = state === 'ask' || (state === 'end' && !walked);
+    var playS = Math.max(34, Math.min(76, Math.min(vw / 8.2, vh / 12.5))), fitS = Math.min(vw / (W + 1), (vh - 262) / (H + 1));
+    var z = Math.max(2, Math.round(playS * dpr / 16)), U = over ? Math.max(4, Math.floor(fitS * dpr)) : 16 * z, a = over ? Math.max(1, Math.round(U / 16)) : z;
+    var wx = px(), wy = py(), tX = wx, tY = wy, ox, oy, i, x, y, l, sx, sy, wingc, bt, k, q, n, pt, sg, F, fpx, tw, pad, bw, bh, beam, slide, bx, by, ex, ey, m, st, inPlay = !over && state !== 'end';
+    if (over) { tX = W / 2; tY = H / 2 - ((232 + (vh - 262) / 2 - vh / 2) * dpr) / U; }
+    if (!camS || over) { camS = 1; camX = tX; camY = tY; } else { camX += (tX - camX) * .3; camY += (tY - camY) * .3; }
+    shake = Math.max(0, shake - dt);
+    ox = Math.round((Wd / 2 - camX * U) / a) * a + (shake > 0 ? (Math.random() < .5 ? -2 : 2) * a : 0);
+    oy = Math.round((Hd / 2 - camY * U) / a) * a + (shake > 0 ? (Math.random() < .5 ? -2 : 2) * a : 0);
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.imageSmoothingEnabled = false; ctx.globalAlpha = 1;
+    ctx.fillStyle = '#0b1030'; ctx.fillRect(0, 0, Wd, Hd);
+    st = Math.max(2, Math.round(dpr)) ;
+    for (i = 0; i < stars.length; i++) {
+      if (Math.sin(time * 1.6 + stars[i][2]) < -.45) continue;
+      sx = ((stars[i][0] * Wd - camX * U * .12) % Wd + Wd) % Wd; sy = ((stars[i][1] * Hd - camY * U * .12) % Hd + Hd) % Hd;
+      ctx.fillStyle = stars[i][3] ? '#9db8ff' : '#ffffff';
+      ctx.fillRect(Math.round(sx / st) * st, Math.round(sy / st) * st, stars[i][3] ? st * 2 : st, stars[i][3] ? st * 2 : st);
+    }
+
+    // paving, lit in four hard steps
+    bt = Math.max(1, 2 * a);
+    for (y = 0; y < H; y++) for (x = 0; x < W; x++) {
+      i = idx(x, y); if (!open[i]) continue;
+      l = q4(target[i]); light[i] = l; if (!l) continue;
+      sx = ox + x * U; sy = oy + y * U;
+      if (sx > Wd || sy > Hd || sx < -U || sy < -U) continue;
+      wingc = isWing(x, y);
+      ctx.globalAlpha = l; ctx.drawImage(wingc ? TILE.a : TILE.b, sx, sy, U, U);
+      ctx.fillStyle = wingc ? '#ffd27a' : '#8fa8ff';
+      if (!isOpen(x, y - 1)) ctx.fillRect(sx, sy, U, bt);
+      if (!isOpen(x, y + 1)) ctx.fillRect(sx, sy + U - bt, U, bt);
+      if (!isOpen(x - 1, y)) ctx.fillRect(sx, sy, bt, U);
+      if (!isOpen(x + 1, y)) ctx.fillRect(sx + U - bt, sy, bt, U);
+    }
+    ctx.globalAlpha = 1;
+
+    // dead ends already hit
+    for (k in visitedDead) {
+      q = k.split(','); l = light[idx(+q[0], +q[1])]; if (!l) continue;
+      sx = ox + (+q[0]) * U + 8 * a; sy = oy + (+q[1]) * U + 8 * a; ctx.globalAlpha = l; ctx.fillStyle = '#f06078';
+      for (n = -3; n <= 2; n++) { ctx.fillRect(sx + n * a, sy + n * a, a * 2, a * 2); ctx.fillRect(sx + n * a, sy - (n + 1) * a, a * 2, a * 2); }
+    }
+    ctx.globalAlpha = 1;
+
+    // gate, switch, exit
+    gateFade = Math.max(0, gateFade - dt * 2);
+    l = light[idx(FAKE[0], FAKE[1])];
+    if (l && (!gateOpen || (gateFade > 0 && Math.floor(time * 16) % 2))) {
+      ctx.globalAlpha = l; sx = ox + GATE[0] * U; sy = oy + GATE[1] * U;
+      for (i = 0; i < 3; i++) { ctx.fillStyle = '#f5b942'; ctx.fillRect(sx + (2 + i * 5) * a, sy + a, 2 * a, 14 * a); ctx.fillStyle = '#ffe9a8'; ctx.fillRect(sx + (2 + i * 5) * a, sy + a, a, 14 * a); }
+    }
+    if (l) {
+      ctx.globalAlpha = l; sx = ox + FAKE[0] * U; sy = oy + FAKE[1] * U;
+      if (!fakeDone && Math.floor(time * 4) % 2) ring(sx + 8 * a, sy + 8 * a, 8 * a, a, '#ffe9a8');
+      ctx.fillStyle = fakeDone ? '#5b6396' : '#f5b942'; ctx.fillRect(sx + 3 * a, sy + 5 * a, 10 * a, 6 * a);
+      ctx.fillStyle = '#0b1030'; ctx.fillRect(sx + 3 * a, sy + 5 * a, a, a); ctx.fillRect(sx + 12 * a, sy + 5 * a, a, a); ctx.fillRect(sx + 3 * a, sy + 10 * a, a, a); ctx.fillRect(sx + 12 * a, sy + 10 * a, a, a);
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(sx + (fakeDone ? 4 : 8) * a, sy + 6 * a, 4 * a, 4 * a);
+    }
+    l = light[idx(EXIT[0], EXIT[1])];
+    if (l) {
+      ctx.globalAlpha = l; sx = ox + EXIT[0] * U + 8 * a; sy = oy + EXIT[1] * U + 8 * a; n = Math.floor(time * 6) % 3;
+      ring(sx, sy, (3 + n * 2) * a, a, '#58d68d'); ring(sx, sy, (1 + ((n + 1) % 3) * 2) * a, a, '#b4ffd2');
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(sx - a, sy - a, 2 * a, 2 * a);
+    }
+    ctx.globalAlpha = 1;
+
+    // sparks
+    if (inPlay) { emberT += dt; if (emberT > .13) { emberT = 0; puff(wx + pl.face * .42, wy - .5, 1, 'ember'); } }
+    for (n = parts.length - 1; n >= 0; n -= 1) {
+      pt = parts[n]; pt.t += dt;
+      if (pt.t >= pt.m) { parts.splice(n, 1); continue; }
+      pt.x += pt.vx * dt; pt.y += pt.vy * dt; pt.vx *= .94; pt.vy *= .94;
+      m = (pt.k === 'dust' || pt.k === 'ember') ? a : 2 * a; if (over) m = Math.max(2, Math.round(dpr)) * 2;
+      ctx.fillStyle = PCOL[pt.k]; ctx.globalAlpha = pt.t / pt.m > .6 ? .5 : 1;
+      ctx.fillRect(ox + Math.round(pt.x * U / a) * a, oy + Math.round(pt.y * U / a) * a, m, m);
+    }
+    ctx.globalAlpha = 1;
+
+    // signposts in the pixel font
+    F = Math.max(1, Math.round(dpr * (over ? .8 : 1.375))); fpx = 8 * F;
+    ctx.font = fpx + 'px "Press Start 2P", "Courier New", monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    for (i = 0; i < SIGNS.length; i++) {
+      sg = SIGNS[i]; l = light[idx(sg.t[0], sg.t[1])];
+      if (!l || (over && (sg.dim || sg.s.length > 12))) continue;
+      tw = Math.ceil(ctx.measureText(sg.s).width); pad = Math.round(fpx * .55); bw = tw + pad * 2; bh = fpx + pad * 2;
+      sx = Math.round(ox + (sg.at[0] + .5) * U - bw / 2); sy = Math.round(oy + (sg.at[1] + .5) * U - bh / 2);
+      ctx.globalAlpha = l >= .48 ? 1 : .5;
+      ctx.fillStyle = '#000000'; ctx.fillRect(sx + F, sy + F, bw, bh);
+      ctx.fillStyle = sg.wing ? '#f5b942' : (sg.dim ? '#4453b5' : '#6f9bff'); ctx.fillRect(sx - F, sy - F, bw + 2 * F, bh + 2 * F);
+      ctx.fillStyle = sg.wing ? '#2a1e08' : '#0b1030'; ctx.fillRect(sx, sy, bw, bh);
+      ctx.fillStyle = sg.wing ? '#ffe0a0' : (sg.dim ? '#b9c3f5' : '#ffffff'); ctx.fillText(sg.s, sx + pad, sy + pad);
+    }
+    ctx.globalAlpha = 1;
+
+    // beam, drawn as a staircase of squares
+    bx = wx; by = wy;
+    if (over) {
+      ex = EXIT[0] + .5; ey = EXIT[1] + .5;
+      beam = state === 'end' ? 1 : Math.max(0, Math.min(1, (askT - 2.9) / .5));
+      slide = state === 'end' ? 1 : Math.max(0, Math.min(1, (askT - 3.5) / .8));
+      slide = Math.floor(slide * 12) / 12;
+      if (beam > 0) {
+        m = Math.max(2, Math.round(dpr)) * 2;
+        n = Math.ceil(Math.sqrt((ex - askFrom[0]) * (ex - askFrom[0]) + (ey - askFrom[1]) * (ey - askFrom[1])) * U / m);
+        for (i = 0; i <= n * beam; i++) {
+          sx = ox + Math.round((askFrom[0] + (ex - askFrom[0]) * i / n) * U / m) * m; sy = oy + Math.round((askFrom[1] + (ey - askFrom[1]) * i / n) * U / m) * m;
+          ctx.fillStyle = '#2aa9c9'; ctx.fillRect(sx - m, sy - m, m * 3, m * 3);
+        }
+        for (i = 0; i <= n * beam; i++) {
+          sx = ox + Math.round((askFrom[0] + (ex - askFrom[0]) * i / n) * U / m) * m; sy = oy + Math.round((askFrom[1] + (ey - askFrom[1]) * i / n) * U / m) * m;
+          ctx.fillStyle = (i + Math.floor(time * 20)) % 4 ? '#8cfaff' : '#ffffff'; ctx.fillRect(sx, sy, m, m);
+        }
+        if (beam >= 1 && !beamHit) { beamHit = true; puff(ex, ey, 40, 'mint'); shake = .25; }
+      }
+      bx = askFrom[0] + (ex - askFrom[0]) * slide; by = askFrom[1] + (ey - askFrom[1]) * slide;
+    }
+    // Wapuu
+    m = over ? Math.max(2 * a, Math.max(2, Math.round(dpr)) * 2) : a;
+    sx = ox + Math.round((bx * U - 8 * m) / a) * a; sy = oy + Math.round((by * U - (over ? 10 : 11) * m) / a) * a;
+    k = pl.face < 0 ? 1 : 0; n = pl.moving ? Math.floor(time * 9) % 2 : 0;
+    ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(sx + 3 * m, sy + 15 * m, 10 * m, 2 * m);
+    ctx.drawImage(SPR[n][k], sx, sy - (n ? m : 0), 16 * m, 16 * m);
+    if (Math.floor(time * 9) % 2) { ctx.fillStyle = '#ffe37a'; ctx.fillRect(sx + (k ? 2 : 13) * m, sy + (2 - (n ? 1 : 0)) * m, m, m); }
+  }
+
+  // ---- Loop ---------------------------------------------------------------
+  var last = 0, clock = 0;
+  function frame(ts) {
+    var dt = Math.min(.05, (ts - last) / 1000 || 0), n, btn = $('ask'), left;
+    last = ts; clock += dt;
+    step(dt);
+    if (state === 'ask') {
+      askT += dt;
+      n = Math.floor(Math.max(0, Math.min(1, (askT - .5) / 1.9)) * SENTENCE.length);
+      if ($('typed').textContent.length !== n) $('typed').textContent = SENTENCE.slice(0, n);
+      if (askT > 4.2) $('aiBubble').classList.add('on');
+      if (askT > 5.6) finish();
+    }
+    $('timer').textContent = fmt(elapsed);
+    left = Math.ceil(UNLOCK - elapsed);
+    if (left > 0) { btn.disabled = true; btn.classList.remove('ready'); btn.textContent = 'Just ask (' + left + ')'; }
+    else { btn.disabled = state !== 'play'; btn.classList.toggle('ready', state === 'play'); btn.textContent = 'Just ask your AI'; }
+    btn.style.visibility = (state === 'play' || state === 'modal') ? 'visible' : 'hidden';
+    draw(clock, dt);
+    if (state === 'intro') drawArt('artIntro', clock);
+    if (state === 'end') drawArt('artEnd', clock);
+    requestAnimationFrame(frame);
+  }
+
+  // ---- Buttons ------------------------------------------------------------
+  $('startBtn').addEventListener('click', function () { show('intro', false); state = 'play'; });
+  $('ask').addEventListener('click', askNow);
+  $('switchBtn').addEventListener('click', function () {
+    $('tick').classList.add('off'); puff(FAKE[0] + .5, FAKE[1] + .5, 18, 'gold');
+    setTimeout(function () { show('fake1', false); show('fake2', true); }, 650);
+  });
+  $('goBtn').addEventListener('click', function () {
+    show('fake2', false); fakeDone = true; gateOpen = true; open[idx(GATE[0], GATE[1])] = true;
+    state = 'play'; relight(); gateFade = 1; shake = .2; puff(GATE[0] + .5, GATE[1] + .5, 26, 'gold'); toast('A new passage has opened.', 2600);
+  });
+  $('againBtn').addEventListener('click', function () {
+    show('end', false); $('task').style.visibility = 'visible'; reset(); state = 'play';
+  });
+  $('shareBtn').addEventListener('click', function () {
+    var text = (walked
+      ? 'It took me ' + fmt(elapsed) + ' to turn off comments in WordPress the long way. My AI needs one sentence.'
+      : 'I spent ' + fmt(elapsed) + ' lost in WordPress trying to turn off comments. My AI needed one sentence.') + ' ' + $('cta').href;
+    var b = $('shareBtn'), box = $('shareText');
+    function fallback() { box.value = text; box.style.display = 'block'; box.focus(); box.select(); b.textContent = 'Copy it'; }
+    try { navigator.clipboard.writeText(text).then(function () { b.textContent = 'Copied'; }, fallback); } catch (e) { fallback(); }
+  });
+
+  // ---- Debug helpers (for screenshots and the solvability check) ------------
+  function reach(from, gate) {
+    var saved = gateOpen, q = [from], vis = {}, cur, n, nx, ny, out = {};
+    gateOpen = gate; vis[from[0] + ',' + from[1]] = true;
+    while (q.length) {
+      cur = q.shift(); out[cur[0] + ',' + cur[1]] = true;
+      for (n = 0; n < 4; n++) { nx = cur[0] + N4[n][0]; ny = cur[1] + N4[n][1];
+        if (isOpen(nx, ny) && !vis[nx + ',' + ny]) { vis[nx + ',' + ny] = true; q.push([nx, ny]); } }
+    }
+    gateOpen = saved; return out;
+  }
+  function selftest() {
+    var a = reach(START, false), b = reach(START, true), ends = [], x, y, n, c, miss = [], k;
+    for (y = 0; y < H; y++) for (x = 0; x < W; x++) if (open[idx(x, y)]) {
+      c = 0; for (n = 0; n < 4; n++) if (inb(x + N4[n][0], y + N4[n][1]) && open[idx(x + N4[n][0], y + N4[n][1])]) c++;
+      if (c === 1) ends.push(x + ',' + y);
+      if (!b[x + ',' + y]) miss.push(x + ',' + y);
+    }
+    for (k in DEAD) if (ends.indexOf(k) < 0) miss.push('toast-not-dead-end:' + k);
+    for (n = 0; n < SIGNS.length; n++) if (!open[idx(SIGNS[n].t[0], SIGNS[n].t[1])]) miss.push('sign-trigger-in-wall:' + SIGNS[n].s);
+    return 'fakeReachable=' + !!a[FAKE.join(',')] + ' exitBeforeGate=' + !!a[EXIT.join(',')] + ' exitAfterGate=' + !!b[EXIT.join(',')] +
+      ' ends=' + ends.length + ' [' + ends.join(' ') + '] problems=' + (miss.join(' ') || 'none');
+  }
+  function teleport(x, y) {
+    var r = reach([pl.x, pl.y], gateOpen), k, p;
+    for (k in r) { p = k.split(','); if (+p[0] <= Math.max(x, pl.x) + 0 && (Math.abs(+p[1] - y) < 9)) seen[idx(+p[0], +p[1])] = true; }
+    pl.x = pl.cx = pl.sx = x; pl.y = pl.cy = pl.sy = y; pl.p = 1; pl.moving = false; pl.dir = null; relight(); camS = 0;
+    for (k = 0; k < W * H; k++) light[k] = target[k];
+  }
+
+  resize(); reset();
+  var dbg = new URLSearchParams(location.search).get('debug');
+  if (dbg) {
+    document.title = selftest();
+    if (dbg !== 'intro') { show('intro', false); state = 'play'; started = true; }
+    if (dbg === 'play') { elapsed = 9; teleport(1, 27); }
+    if (dbg === 'dead') { elapsed = 31; teleport(13, 25); arrive(); }
+    if (dbg === 'fake') { elapsed = 38; teleport(15, 13); arrive(); }
+    if (dbg === 'fake2') { elapsed = 38; teleport(15, 13); state = 'modal'; show('fake2', true); }
+    if (dbg === 'wing') { elapsed = 52; fakeDone = true; gateOpen = true; open[idx(16, 13)] = true; teleport(21, 21); }
+    if (dbg === 'ask') { elapsed = 47; teleport(11, 29); askNow(); }
+    if (dbg === 'auto') { // a bot walks the whole maze, to prove it can be finished on foot
+      (function () {
+        var n, goal, q, from, cur, m, nx, ny, k, d, log = [];
+        for (n = 0; n < 60 * 600 && state !== 'end'; n++) {
+          if (state === 'modal') { log.push('fake exit at ' + fmt(elapsed)); $('goBtn').click(); continue; }
+          goal = fakeDone ? EXIT : FAKE; q = [[pl.x, pl.y]]; from = {}; from[pl.x + ',' + pl.y] = null;
+          while (q.length) { cur = q.shift(); if (cur[0] === goal[0] && cur[1] === goal[1]) break;
+            for (m = 0; m < 4; m++) { nx = cur[0] + N4[m][0]; ny = cur[1] + N4[m][1]; k = nx + ',' + ny;
+              if (isOpen(nx, ny) && !(k in from)) { from[k] = cur; q.push([nx, ny]); } } }
+          cur = goal;
+          while (from[cur[0] + ',' + cur[1]] && !(from[cur[0] + ',' + cur[1]][0] === pl.x && from[cur[0] + ',' + cur[1]][1] === pl.y)) cur = from[cur[0] + ',' + cur[1]];
+          for (d in DV) if (pl.x + DV[d][0] === cur[0] && pl.y + DV[d][1] === cur[1]) setWant(d);
+          step(1 / 60);
+        }
+        document.title = 'AUTO state=' + state + ' walked=' + walked + ' ' + log.join(' ') + ' finish=' + fmt(elapsed) + ' at ' + pl.x + ',' + pl.y;
+      })();
+    }
+    if (dbg === 'turn') { // checks the instant turn-round, the early turn and the late-turn catch
+      (function () {
+        var n, out = [];
+        function run(k) { for (n = 0; n < k; n++) step(1 / 60); }
+        setWant('U'); run(5); setWant('D');
+        out.push('reverse mid-square: heading ' + pl.dir + ' to ' + pl.x + ',' + pl.y);
+        run(30); setWant('U');
+        for (n = 0; n < 400 && !(pl.x === 1 && pl.y === 37 && pl.p > .6); n++) step(1 / 60);
+        setWant('R'); step(1 / 60);
+        out.push('early turn at Posts: heading ' + pl.dir + ' to ' + pl.x + ',' + pl.y);
+        run(40); out.push('then at ' + pl.x + ',' + pl.y);
+        reset(); state = 'play'; setWant('U');
+        for (n = 0; n < 400 && !(pl.x === 1 && pl.y === 36 && pl.p > .3); n++) step(1 / 60);
+        setWant('R');
+        out.push('late turn at Posts: heading ' + pl.dir + ' to ' + pl.x + ',' + pl.y);
+        run(40); out.push('then at ' + pl.x + ',' + pl.y + ' heading ' + pl.dir);
+        document.title = 'TURN ' + out.join(' | ');
+      })();
+    }
+    if (dbg === 'end') { elapsed = 47; teleport(11, 29); askNow(); askT = 5.5; }
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
