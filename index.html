@@ -642,7 +642,7 @@
   $('shareBtn').addEventListener('click', function () {
     var text = (walked
       ? 'It took me ' + fmt(elapsed) + ' to turn off comments in WordPress the long way. My AI needs one sentence.'
-      : 'I spent ' + fmt(elapsed) + ' lost in WordPress trying to turn off comments. My AI needed one sentence.') + ' ' + $('cta').href;
+      : 'I spent ' + fmt(elapsed) + ' lost in WordPress trying to turn off comments. My AI needed one sentence.') + ' Play it: ' + gameUrl;
     var b = $('shareBtn'), box = $('shareText');
     function fallback() { box.value = text; box.style.display = 'block'; box.focus(); box.select(); b.textContent = 'Copy it'; }
     try { navigator.clipboard.writeText(text).then(function () { b.textContent = 'Copied'; }, fallback); } catch (e) { fallback(); }
@@ -677,6 +677,11 @@
     pl.x = pl.cx = pl.sx = x; pl.y = pl.cy = pl.sy = y; pl.p = 1; pl.moving = false; pl.dir = null; relight(); camS = 0;
     for (k = 0; k < W * H; k++) light[k] = target[k];
   }
+
+  // which post sent this player? ?x or ?in on the game's address picks Stacey's tagged short link
+  var cameFrom = location.search.match(/[?&](?:from=)?(x|in)(?:[&=]|$)/);
+  if (cameFrom) $('cta').href = 'https://wpvibe.ai/' + cameFrom[1] + '/comments-maze';
+  var gameUrl = /^https?:/.test(location.protocol) ? location.origin + location.pathname : $('cta').href;
 
   resize(); reset();
   var dbg = new URLSearchParams(location.search).get('debug');
